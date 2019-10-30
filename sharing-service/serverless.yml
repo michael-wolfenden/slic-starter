@@ -4,7 +4,6 @@ plugins:
   - serverless-webpack
   - serverless-offline
   - serverless-pseudo-parameters
-  - serverless-log-forwarding
   - serverless-iam-roles-per-function
 
 provider:
@@ -18,12 +17,8 @@ provider:
   environment:
     SLIC_STAGE: ${self:provider.stage}
     EMAIL_QUEUE_NAME: ${self:custom.emailQueueName}
-  resourcePolicy:
-    - Effect: Allow
-      Principal: '*'
-      Action: 'execute-api:Invoke'
-      Resource:
-        - execute-api:/*/*/*
+  stackTags:
+    SLIC_STAGE: ${self:provider.stage}
 
 custom:
   webpack:
@@ -38,8 +33,6 @@ custom:
   prune:
     automatic: true
     number: 3
-  logForwarding:
-    destinationARN: !ImportValue ${self:provider.stage}-log-forwarder-function-arn
 
 functions: ${file(./sls-functions.yml)}
 

@@ -1,53 +1,25 @@
 service: logging-service
 
 plugins:
-  - serverless-python-requirements
   - serverless-pseudo-parameters
-  - serverless-iam-roles-per-function
+
+custom:
+  logBucketName: slic-lists-logs-${self:provider.stage}
 
 provider:
   name: aws
   stage: ${opt:stage, 'local'}
   region: ${opt:region, '${env:TARGET_REGION}'}
-  runtime: python3.6
-  tracing: true
+  runtime: nodejs10.x
+  stackTags:
+    LOGS_EXCLUDE: 'true'
+    SLIC_STAGE: ${self:provider.stage}
 
-custom:
-  pythonRequirements:
-    slim: true
-    useDownloadCache: true
-    useStaticCache: true
-    dockerizePip: non-linux
-
-functions: ${file(./sls-functions.yml)}
+functions:
+  logProcessor:
+    handler: src/log-processor.process
+    timeout: 60
 
 resources:
-  Outputs:
-    loggingFunctionArn:
-      Value: !GetAtt LogForwarderLambdaFunction.Arn
-      Export:
-        Name: ${self:provider.stage}-log-forwarder-function-arn
-
-  # NOTE: /logging/logzio/token must be added manually as a SecretString
-
-  Resources:
-    logzioFormatParameter:
-      Type: AWS::SSM::Parameter
-      Properties:
-        Name: /${self:provider.stage}/logging/logzio/format
-        Type: String
-        Value: json
-
-    logzioUrlParameter:
-      Type: AWS::SSM::Parameter
-      Properties:
-        Name: /${self:provider.stage}/logging/logzio/url
-        Type: String
-        Value: https://listener.logz.io:8071
-
-    logzioTypeParameter:
-      Type: AWS::SSM::Parameter
-      Properties:
-        Name: /${self:provider.stage}/logging/logzio/type
-        Type: String
-        Value: cloudwatch-logs
+  Transform: AWS::Serverless-2016-10-31
+  Resources: ${file(./sls-resources.yml)}

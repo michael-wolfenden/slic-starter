@@ -1,0 +1,116 @@
+logBucket:
+  Type: AWS::S3::Bucket
+  Properties:
+    BucketName: ${self:custom.logBucketName}
+
+logProcessingStream:
+  Type: AWS::Kinesis::Stream
+  Properties:
+    RetentionPeriodHours: 24
+    ShardCount: 1
+
+logFirehoseStreamAccessRole:
+  Type: AWS::IAM::Role
+  Properties:
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: firehose.amazonaws.com
+          Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              sts:ExternalId:
+                Ref: AWS::AccountId
+    RoleName: firehose-logs-role-${self:provider.stage}
+    Policies:
+      - PolicyName: firehose-logs-policy-${self:provider.stage}
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:AbortMultipartUpload
+                - s3:GetBucketLocation
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+                - s3:PutObject
+              Resource:
+                - arn:aws:s3:::${self:custom.logBucketName}
+                - arn:aws:s3:::${self:custom.logBucketName}/*
+
+logFirehoseStream:
+  Type: AWS::KinesisFirehose::DeliveryStream
+  Properties:
+    DeliveryStreamName: firehose-logs-delivery-stream-${self:provider.stage}
+    DeliveryStreamType: DirectPut
+    ExtendedS3DestinationConfiguration:
+      BucketARN: arn:aws:s3:::${self:custom.logBucketName}
+      RoleARN: { Fn::GetAtt: [logFirehoseStreamAccessRole, Arn] }
+      Prefix: ''
+      ProcessingConfiguration:
+        Enabled: true
+        Processors:
+          - Type: Lambda
+            Parameters:
+              - ParameterName: LambdaArn
+                ParameterValue:
+                  { Fn::GetAtt: [LogProcessorLambdaFunction, Arn] }
+              - ParameterName: NumberOfRetries
+                ParameterValue: 3
+              - ParameterName: BufferSizeInMBs
+                ParameterValue: 3
+              - ParameterName: BufferIntervalInSeconds
+                ParameterValue: 60
+      BufferingHints:
+        IntervalInSeconds: 60
+        SizeInMBs: 128
+      CompressionFormat: GZIP # Options are UNCOMPRElSED, GZIP, ZIP, Snappy
+
+autoSubscribeLogGroupsStream:
+  Type: AWS::Serverless::Application
+  Properties:
+    Location:
+      ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/auto-subscribe-log-group-to-arn
+      SemanticVersion: 1.11.0
+    Parameters:
+      DestinationArn: !GetAtt logProcessingStream.Arn
+      Prefix: '/aws/lambda/'
+      Tags: SLIC_STAGE=${self:provider.stage}
+      ExcludeTags: LOGS_EXCLUDE=true
+      FilterName: forward-logs-kinesis-stream
+      FilterPattern: '?REPORT ?MONITORING'
+      UnsubscribeOnDelete: true
+
+autoSubscribeLogGroupsFirehose:
+  Type: AWS::Serverless::Application
+  Properties:
+    Location:
+      ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/auto-subscribe-log-group-to-arn
+      SemanticVersion: 1.11.0
+    Parameters:
+      DestinationArn: !GetAtt logFirehoseStream.Arn
+      Prefix: '/aws/lambda/'
+      Tags: SLIC_STAGE=${self:provider.stage}
+      ExcludeTags: LOGS_EXCLUDE=true
+      FilterName: forward-logs-firehose
+      UnsubscribeOnDelete: true
+
+autoSetLogGroupsRetention:
+  Type: AWS::Serverless::Application
+  Properties:
+    Location:
+      ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/auto-set-log-group-retention
+      SemanticVersion: 1.4.0
+    Parameters:
+      # The number of days to retain logs in CloudWatch Logs for.
+      RetentionDays: 7
+
+propagateCloudFormationTags:
+  Type: AWS::Serverless::Application
+  Properties:
+    Location:
+      ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/propagate-cfn-tags
+      SemanticVersion: 1.8.0

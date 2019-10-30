@@ -7,7 +7,6 @@ plugins:
   - '@dathuis/serverless-dynamodb-local'
   - serverless-offline
   - serverless-prune-plugin
-  - serverless-log-forwarding
   - serverless-pseudo-parameters
   - serverless-iam-roles-per-function
 
@@ -31,6 +30,8 @@ provider:
     SERVICE_NAME: ${file(./package.json):name}
     SERVICE_VERSION: ${file(./package.json):version}
     CHECKLIST_TABLE_NAME: ${self:custom.checklistTableName}
+  stackTags:
+    SLIC_STAGE: ${self:provider.stage}
 
 custom:
   webpack:
@@ -54,8 +55,6 @@ custom:
   prune:
     automatic: true
     number: 3
-  logForwarding:
-    destinationARN: !ImportValue ${self:provider.stage}-log-forwarder-function-arn
 
 functions: ${file(./sls-functions.yml)}
 

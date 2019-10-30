@@ -5,7 +5,6 @@ plugins:
   - serverless-offline
   - serverless-prune-plugin
   - serverless-pseudo-parameters
-  - serverless-log-forwarding
   - serverless-iam-roles-per-function
 
 provider:
@@ -16,6 +15,8 @@ provider:
   tracing:
     lambda: true
   environment:
+    SLIC_STAGE: ${self:provider.stage}
+  stackTags:
     SLIC_STAGE: ${self:provider.stage}
 
 custom:
@@ -29,7 +30,5 @@ custom:
     port: 4001
     stage: local
     region: ${self:provider.region}
-  logForwarding:
-    destinationARN: !ImportValue ${self:provider.stage}-log-forwarder-function-arn
 
 functions: ${file(./sls-functions.yml)}
