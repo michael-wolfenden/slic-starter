@@ -37,7 +37,7 @@ userPoolIdParameter:
     Type: String
     Value: !Ref slicUserPool
 
-userServiceUrlParameter:
+userServiceNameParameter:
   Type: AWS::SSM::Parameter
   Properties:
     Name: /${self:provider.stage}/user-service/url

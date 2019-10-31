@@ -4,7 +4,9 @@ const pino = require('pino')
 
 const { name } = require('./service-info')
 
-module.exports = pino({
+const logMethods = ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
+
+const parentLogger = pino({
   name,
   level:
     process.env.DEBUG ||
@@ -13,3 +15,25 @@ module.exports = pino({
       ? 'debug'
       : 'info'
 })
+
+let currentLogger = parentLogger
+
+function newContext(context) {
+  currentLogger = parentLogger.child({ ctx: context })
+  return currentLogger
+}
+
+const overrides = {}
+
+logMethods.forEach(functionName => {
+  overrides[functionName] = function() {
+    currentLogger[functionName].apply(currentLogger, arguments)
+  }
+})
+
+const log = {
+  ...overrides,
+  newContext
+}
+
+module.exports = log

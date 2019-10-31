@@ -1,13 +1,12 @@
 'use strict'
 
-const { createResponse } = require('slic-tools/response')
 const checklist = require('./checklist')
+const { middify } = require('slic-tools/middy-util')
 const { processEvent } = require('slic-tools/event-util')
 
 async function main(event) {
-  debugger
   const { userId } = processEvent(event)
-  return createResponse(checklist.list({ userId }))
+  return checklist.list({ userId })
 }
 
-module.exports = { main }
+module.exports = middify({ main })

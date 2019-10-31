@@ -1,7 +1,11 @@
 'use strict'
 
+/* Enable Keep-Alive for AWS SDK HTTP connections */
+process.env.AWS_NODEJS_CONNECTION_REUSE_ENABLED = '1'
+
 const awsXray = require('aws-xray-sdk')
 const AWS = awsXray.captureAWS(require('aws-sdk'))
+
 const defaultOptions = {
   convertEmptyValues: true // If this is not set, empty strings cause an error. This converts them automatically to NULL
 }
